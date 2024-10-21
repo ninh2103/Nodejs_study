@@ -4,7 +4,12 @@ import {
   emailVerifyController,
   followController,
   forgotPasswordController,
+  getAllUserController,
+  getFollowerController,
+  getFollowingController,
   getMeController,
+  getSearchUsersController,
+  getUserMessageController,
   getUserProfileController,
   loginController,
   logoutController,
@@ -18,6 +23,7 @@ import {
   verifyForgotPasswordController
 } from '~/controllers/users.controllers'
 import { filterMiddleware } from '~/middlewares/common.middleware'
+import { paginateValidator } from '~/middlewares/tweets.middleware'
 import {
   accessTokenValidator,
   changePasswordValidator,
@@ -52,7 +58,7 @@ usersRouter.post('/reset-password', resetPasswordValidator, wrapRequestHandler(r
 usersRouter.get('/me', accessTokenValidator, wrapRequestHandler(getMeController))
 usersRouter.get('/:user_id', accessTokenValidator, wrapRequestHandler(getUserProfileController))
 
-usersRouter.patch(
+usersRouter.put(
   '/me',
   accessTokenValidator,
   verifiedUserValidator,
@@ -77,7 +83,7 @@ usersRouter.post(
   wrapRequestHandler(followController)
 )
 usersRouter.delete(
-  '/follow/:user_id',
+  '/unfollow/:user_id',
   accessTokenValidator,
   verifiedUserValidator,
   unfollowValidator,
@@ -91,3 +97,29 @@ usersRouter.put(
 )
 usersRouter.get('/oauth/google', wrapRequestHandler(oauthController))
 usersRouter.post('/refresh-token', refreshTokenValidator, wrapRequestHandler(refreshTokenController))
+usersRouter.get('/list/tofollow', accessTokenValidator, verifiedUserValidator, wrapRequestHandler(getAllUserController))
+usersRouter.get(
+  '/message/list',
+  accessTokenValidator,
+  verifiedUserValidator,
+  wrapRequestHandler(getUserMessageController)
+)
+usersRouter.get(
+  '/follower/list',
+  accessTokenValidator,
+  verifiedUserValidator,
+  wrapRequestHandler(getFollowerController)
+)
+usersRouter.get(
+  '/following/list',
+  accessTokenValidator,
+  verifiedUserValidator,
+  wrapRequestHandler(getFollowingController)
+)
+usersRouter.get(
+  '/api/search',
+  accessTokenValidator,
+  // paginateValidator,
+  verifiedUserValidator,
+  wrapRequestHandler(getSearchUsersController)
+)

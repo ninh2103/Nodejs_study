@@ -6,6 +6,7 @@ import { ObjectId } from 'mongodb'
 import { UserVerifyStatus } from '~/constants/enums'
 import { HTTP_STATUS } from '~/constants/httpStatus'
 import { userMessage } from '~/constants/messages'
+import { PaginationReq } from '~/models/requests/tweet.requests'
 import {
   ChangePasswordReqBody,
   FollowReqBody,
@@ -204,4 +205,75 @@ export const refreshTokenController = async (
     message: userMessage.REFRESH_TOKEN_SUCCESS,
     result
   })
+}
+export const getAllUserController = async (
+  req: Request<ParamsDictionary, any, any, PaginationReq>,
+  res: Response,
+  next: NextFunction
+) => {
+  const page = Number(req.query.page)
+  const limit = Number(req.query.limit)
+  const { user_id } = req.decoded_authorization as TokenPayload
+  const result = await usersService.getAllUser({ user_id, page, limit })
+  return res.json({
+    message: userMessage.GET_LIST_USER_SUCCESS,
+    result
+  })
+}
+export const getUserMessageController = async (
+  req: Request<ParamsDictionary, any, any, PaginationReq>,
+  res: Response,
+  next: NextFunction
+) => {
+  const page = Number(req.query.page)
+  const limit = Number(req.query.limit)
+  const { user_id } = req.decoded_authorization as TokenPayload
+  const result = await usersService.getUserMessage({ user_id, page, limit })
+  return res.json({
+    message: userMessage.GET_LIST_USER_MESSAGE_SUCCESS,
+    result
+  })
+}
+export const getFollowerController = async (req: Request, res: Response, next: NextFunction) => {
+  const { user_id } = req.decoded_authorization as TokenPayload
+  const result = await usersService.getFollower(user_id)
+  return res.json({
+    message: userMessage.GET_FOLLOWER_MESSAGE_SUCCESS,
+    result
+  })
+}
+
+export const getFollowingController = async (req: Request, res: Response, next: NextFunction) => {
+  const { user_id } = req.decoded_authorization as TokenPayload
+  const result = await usersService.getFollowing(user_id)
+  return res.json({
+    message: userMessage.GET_FOLLOWING_MESSAGE_SUCCESS,
+    result
+  })
+}
+
+export const getSearchUsersController = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const searchTerm = (req.query.name as string) || ''
+    const limit = Number(req.query.limit)
+
+    // Gọi service để tìm kiếm người dùng
+    const users = await usersService.getSearch({ searchTerm, limit })
+
+    if (users.length === 0) {
+      return res.status(404).json({
+        message: 'Không tìm thấy người dùng'
+      })
+    }
+
+    return res.status(200).json({
+      message: 'Tìm kiếm thành công',
+      results: users
+    })
+  } catch (error) {
+    console.error('Lỗi khi tìm kiếm người dùng:', error)
+    return res.status(500).json({
+      message: 'Đã xảy ra lỗi khi tìm kiếm người dùng'
+    })
+  }
 }

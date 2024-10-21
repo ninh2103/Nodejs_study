@@ -1,6 +1,6 @@
 import { JwtPayload } from 'jsonwebtoken'
 import { Tokentype, UserVerifyStatus } from '~/constants/enums'
-import { ParamsDictionary } from 'express-serve-static-core'
+import { ParamsDictionary, Query } from 'express-serve-static-core'
 
 export interface RegisterReqBody {
   name: string
@@ -52,7 +52,7 @@ export interface FollowReqBody {
   followed_user_id: string
 }
 export interface UnFollowReqParams extends ParamsDictionary {
-  user_id: string
+  username: string
 }
 export interface ChangePasswordReqBody {
   old_password: string
@@ -61,4 +61,7 @@ export interface ChangePasswordReqBody {
 }
 export interface RefreshTokenBodyReq {
   refresh_token: string
+}
+export interface UserParam extends Query {
+  profile_user_id: string
 }

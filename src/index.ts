@@ -16,6 +16,7 @@ import { da } from '@faker-js/faker'
 import Conversation from './models/schemas/Conversasations'
 import { conversationsRouter } from './routes/conversations.routes'
 import { ObjectId } from 'mongodb'
+import { commentRouter } from '~/routes/comment.routes'
 //import '~/utils/fake'
 const app = express()
 
@@ -23,9 +24,9 @@ app.use(cors())
 const httpServer = createServer(app)
 const port = 4000
 databaseService.conect().then(() => {
-  databaseService.indexUsers()
-  databaseService.indexRefreshToken()
-  databaseService.indexFollowers()
+  // databaseService.indexUsers()
+  // databaseService.indexRefreshToken()
+  // databaseService.indexFollowers()
 })
 initFoder()
 app.use(express.json())
@@ -35,6 +36,7 @@ app.use('/medias', mediasRouter)
 app.use('/tweets', tweetRouter)
 app.use('/bookmarks', bookmarksRouter)
 app.use('/likes', likesRouter)
+app.use('/comments', commentRouter)
 app.use('/conversations', conversationsRouter)
 
 app.use('/medias', express.static(UPLOAD_IMAGE_DIR))
@@ -46,44 +48,44 @@ const io = new Server(httpServer, {
     origin: '*'
   }
 })
+
 const users: {
   [key: string]: {
     socket_id: string
   }
 } = {}
 io.on('connection', (socket: Socket) => {
-  console.log(`user ${socket.id} connected`)
+  console.log(`user ${socket.id} connect`)
   const user_id = socket.handshake.auth._id
+  console.log('user_id', user_id)
   users[user_id] = {
     socket_id: socket.id
   }
   console.log(users)
-  socket.on('private message', async (data) => {
-    const { receiver_id, sender_id, content } = data.payload
-    const socket_reciver_id = users[receiver_id]?.socket_id
+
+  socket.on('private_message', async (data) => {
+    const socket_reciver_id = users[data.to]?.socket_id
     if (!socket_reciver_id) {
       return
     }
-    const conversation = new Conversation({
-      sender_id: new ObjectId(sender_id),
-      receiver_id: new ObjectId(receiver_id),
-      content: content
-    })
-    const result = await databaseService.conversations.insertOne(conversation)
-    conversation._id = result.insertedId
-
-    socket.to(socket_reciver_id).emit('reciver message', {
-      payload: conversation
+    await databaseService.conversations.insertOne(
+      new Conversation({
+        sender_id: new ObjectId(data.from),
+        receiver_id: new ObjectId(data.to),
+        content: data.content
+      })
+    )
+    socket.to(socket_reciver_id).emit('reciver_message', {
+      content: data.content,
+      from: user_id
     })
   })
-
-  socket.on('disconnection', (socket: Socket) => {
+  socket.on('disconnect', () => {
     delete users[user_id]
-    console.log(`user ${socket.id} disconnected`)
+    console.log(`user ${socket.id} disconnect`)
     console.log(users)
   })
 })
-
 httpServer.listen(port, () => {
-  console.log(`dang chay tren port ,${port}`)
+  console.log(`Dang Chay tren Port ${port}`)
 })

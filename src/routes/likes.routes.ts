@@ -8,13 +8,13 @@ likesRouter.post(
   '/',
   accessTokenValidator,
   verifiedUserValidator,
-  tweetidValidator,
+  //tweetidValidator,
   wrapRequestHandler(likesTweetController)
 )
 likesRouter.delete(
   '/tweets/:tweet_id',
   accessTokenValidator,
   verifiedUserValidator,
-  tweetidValidator,
+  //tweetidValidator,
   wrapRequestHandler(unLikesTweetController)
 )

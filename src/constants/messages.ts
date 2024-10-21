@@ -52,7 +52,12 @@ export const userMessage = {
   GEMAIL_NOT_VERIFY: 'gmail not verify',
   UPLOAD_SUCCESSFULLY: 'upload successfully ',
   REFRESH_TOKEN_SUCCESS: 'refresh token success',
-  GET_USER_PROFILE_SUCCESS: 'get user profile success'
+  GET_USER_PROFILE_SUCCESS: 'get user profile success',
+  GET_LIST_USER_SUCCESS: 'get user list success',
+  GET_LIST_USER_MESSAGE_SUCCESS: 'get user message list success',
+  GET_FOLLOWER_MESSAGE_SUCCESS: 'get follower list success',
+  GET_FOLLOWING_MESSAGE_SUCCESS: 'get following list success',
+  GET_SEARCH_USER_SUCCESS: 'get search user success'
 } as const
 
 export const TWEETMESSAGE = {
@@ -66,6 +71,7 @@ export const TWEETMESSAGE = {
   MENTIONS_MUST_BE_AN_ARRAY_OF_USER_ID: 'mention must be an array of user id',
   MEDIAS_MUST_BE_AN_ARRAY_OF_MEDIA_OBJECT: 'medias must be an array of media object',
   INVALID_TWEET_ID: 'invalid tweet id',
+  INVALID_USERNAME: 'invalid username',
   TWEET_NOT_FOUND: 'tweet not found',
   TWEET_IS_NOT_PUBLIC: 'tweet is not public'
 } as const

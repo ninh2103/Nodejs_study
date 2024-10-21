@@ -15,7 +15,12 @@ class MediasService {
         const newName = getNameFromFullName(file.newFilename)
         const newPath = path.resolve(UPLOAD_IMAGE_DIR, `${newName}.jpg`)
         await sharp(file.filepath).jpeg().toFile(newPath)
-        fs.unlinkSync(file.filepath)
+        fs.unlink(file.filepath, (err) => {
+          if (err) {
+            console.error('Error deleting temp file:', err)
+          }
+        })
+
         return {
           url: isProduction
             ? `$https://my-twitter-clone.com/medias/${newName}.jpg`

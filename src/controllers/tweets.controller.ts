@@ -1,7 +1,7 @@
 import { NextFunction, Request, Response } from 'express'
 import { ParamsDictionary } from 'express-serve-static-core'
 import { TweetType } from '~/constants/enums'
-import { TokenPayload } from '~/models/requests/User.requests'
+import { TokenPayload, UserParam } from '~/models/requests/User.requests'
 import { PaginationReq, TweetParam, TweetQuery, TweetReqBody } from '~/models/requests/tweet.requests'
 import tweetsService from '~/services/tweets.services'
 
@@ -18,12 +18,19 @@ export const createTweetController = async (
   })
 }
 export const getTweetController = async (req: Request, res: Response, next: NextFunction) => {
-  const result = await tweetsService.increaseView(req.params.tweet_id, req.decoded_authorization?.user_id)
+  const user_id = req.decoded_authorization?.user_id as string
+  const tweetId = req.params.tweet_id
+  const [viewResult, likesCount, tweetDetail] = await Promise.all([
+    tweetsService.increaseView(tweetId), // Tăng lượt xem
+    tweetsService.getLikesCount(tweetId), // Lấy số lượng likes
+    tweetsService.getTweetDetail(tweetId, user_id) // Lấy chi tiết bài viết
+  ])
+
   const tweet = {
-    ...req.tweet,
-    guest_view: result.guest_view,
-    user_view: result.user_view,
-    view: result.guest_view + result.user_view
+    ...tweetDetail,
+    user_view: viewResult.user_view,
+    view: viewResult.user_view,
+    likes: likesCount
   }
   return res.json({
     message: 'get tweet Successfully',
@@ -75,6 +82,46 @@ export const getNewFeedController = async (
 
   res.json({
     message: 'get new feed success',
+    result: result
+  })
+}
+export const getNewFeedMeController = async (
+  req: Request<ParamsDictionary, any, any, PaginationReq>,
+  res: Response,
+  next: NextFunction
+) => {
+  const user_id = req.decoded_authorization?.user_id as string
+
+  const result = await tweetsService.getMyPosts({ user_id })
+
+  res.json({
+    message: 'get new feed success',
+    result: result
+  })
+}
+export const getNewFeedUserController = async (req: Request, res: Response, next: NextFunction) => {
+  const viewer_user_id = req.decoded_authorization?.user_id as string
+  const profile_user_id = req.params.profile_user_id
+
+  const result = await tweetsService.getUserProfilePosts({ profile_user_id, viewer_user_id })
+
+  res.json({
+    message: 'get new feed success',
+    result: result
+  })
+}
+export const getRandomNewFeedController = async (
+  req: Request<ParamsDictionary, any, any, PaginationReq>,
+  res: Response,
+  next: NextFunction
+) => {
+  const user_id = req.decoded_authorization?.user_id as string
+  const page = Number(req.query.page)
+  const limit = Number(req.query.limit)
+  const result = await tweetsService.getRandomNewFeed({ user_id, page, limit })
+
+  res.json({
+    message: 'get new feed random success',
     result: result
   })
 }

@@ -13,6 +13,7 @@ interface TweetContructor {
   hashtags: ObjectId[]
   mentions: string[]
   medias: Media[]
+
   guest_view?: number
   user_view?: number
   created_at?: Date
@@ -29,6 +30,7 @@ export default class Tweets {
   mentions: ObjectId[]
   medias: Media[]
   guest_view: number
+
   user_view: number
   created_at: Date
   updated_at: Date
@@ -40,6 +42,7 @@ export default class Tweets {
     guest_view,
     hashtags,
     medias,
+
     mentions,
     parent_id,
     type,
@@ -55,6 +58,7 @@ export default class Tweets {
     this.guest_view = guest_view || 0
     this.hashtags = hashtags
     this.medias = medias
+
     this.mentions = mentions.map((item) => new ObjectId(item))
     this.parent_id = parent_id ? new ObjectId(parent_id) : null
     this.type = type

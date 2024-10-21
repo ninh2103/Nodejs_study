@@ -12,6 +12,7 @@ import Follower from '~/models/schemas/Follower.schema'
 import axios from 'axios'
 import { ErrorWithStatus } from '~/models/errors'
 import { HTTP_STATUS } from '~/constants/httpStatus'
+import { sendEmail } from '~/utils/email'
 config()
 class UsersService {
   private signAccessToken({ user_id, verify }: { user_id: string; verify: UserVerifyStatus }) {
@@ -87,6 +88,7 @@ class UsersService {
   }
   async register(payload: RegisterReqBody) {
     const user_id = new ObjectId()
+    const username = user_id.toString()
     const email_verify_token = await this.signVerifyEmailToken({
       user_id: user_id.toString(),
       verify: UserVerifyStatus.Unverified
@@ -97,7 +99,8 @@ class UsersService {
         _id: user_id,
         email_verify_token,
         data_of_birth: new Date(payload.data_of_birth),
-        password: hashPassword(payload.password)
+        password: hashPassword(payload.password),
+        username: username
       })
     )
     const [access_token, refresh_token] = await this.signAccessandRefreshToken({
@@ -109,6 +112,7 @@ class UsersService {
       new RefreshToken({ user_id: new ObjectId(user_id), token: refresh_token, iat, exp })
     )
     console.log('email verify token :', email_verify_token)
+    await sendEmail(payload.email, payload.name, email_verify_token, 'verify')
     return {
       access_token,
       refresh_token
@@ -440,6 +444,175 @@ class UsersService {
       secretOrPublicKey: process.env.JWT_SECRET_REFRESH_TOKEN as string
     })
   }
+
+  async getAllUser({ limit, user_id, page }: { user_id: string; limit: number; page: number }) {
+    const [followedUsers, users] = await Promise.all([
+      // Query to get the list of followed users
+      databaseService.followers
+        .find({
+          user_id: new ObjectId(user_id)
+        })
+        .toArray(),
+
+      // Query to get all users except the logged-in user and those who have been followed
+      databaseService.users
+        .find(
+          {
+            _id: {
+              $ne: new ObjectId(user_id)
+            }
+          },
+          {
+            projection: {
+              password: 0,
+              forgot_password_token: 0,
+              email_verify_token: 0
+            }
+          }
+        )
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .toArray()
+    ])
+
+    // Get the list of IDs of followed users
+    const followedUserIds = followedUsers
+      .map((follower) => follower.followed_user_id)
+      .filter((id) => ObjectId.isValid(id))
+      .map((id) => new ObjectId(id))
+
+    // Filter the list of users to exclude those who have been followed
+    const availableUsers = users.filter((user) => !followedUserIds.some((followedId) => followedId.equals(user._id)))
+
+    return availableUsers
+  }
+  async getUserMessage({ limit, user_id, page }: { user_id: string; limit: number; page: number }) {
+    // Lấy danh sách người dùng đã có cuộc trò chuyện với người dùng hiện tại
+    const conversationUsers = await databaseService.conversations
+      .find({
+        $or: [{ sender_id: new ObjectId(user_id) }, { receiver_id: new ObjectId(user_id) }]
+      })
+      .toArray()
+
+    // Trích xuất ID người dùng từ các cuộc trò chuyện, loại bỏ người dùng hiện tại
+    const conversationUserIds = conversationUsers.reduce((ids, conversation) => {
+      if (conversation.sender_id.toString() !== user_id) {
+        ids.add(conversation.sender_id.toString())
+      }
+      if (conversation.receiver_id.toString() !== user_id) {
+        ids.add(conversation.receiver_id.toString())
+      }
+      return ids
+    }, new Set<string>())
+
+    // Chuyển đổi Set ID thành mảng ObjectId
+    const uniqueConversationUserIds = Array.from(conversationUserIds).map((id) => new ObjectId(id))
+
+    // Lấy thông tin người dùng tham gia cuộc trò chuyện
+    const availableUsers = await databaseService.users
+      .find(
+        {
+          _id: {
+            $in: uniqueConversationUserIds, // Chỉ bao gồm người dùng đã nhắn tin với người dùng hiện tại
+            $ne: new ObjectId(user_id) // Loại bỏ người dùng hiện tại khỏi kết quả
+          }
+        },
+        {
+          projection: {
+            password: 0,
+            forgot_password_token: 0,
+            email_verify_token: 0
+          }
+        }
+      )
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .toArray()
+
+    return availableUsers
+  }
+  async getFollower(user_id: string) {
+    const followers = await databaseService.followers
+      .find({
+        followed_user_id: new ObjectId(user_id) // Truy vấn dựa trên ID của người được theo dõi
+      })
+      .toArray()
+
+    // Bước 2: Lấy thông tin chi tiết của những người theo dõi
+    const followerIds = followers.map((follower) => follower.user_id) // Giả sử trường chứa ID người theo dõi là user_id
+
+    // Bước 3: Lấy thông tin của những người theo dõi từ collection users với projection
+    const userDetails = await databaseService.users
+      .find(
+        {
+          _id: { $in: followerIds.map((id) => new ObjectId(id)) } // Chuyển đổi ID thành ObjectId
+        },
+        {
+          projection: {
+            _id: 1, // Giữ lại ID người dùng
+            name: 1, // Giữ lại tên người dùng
+            username: 1, // Giữ lại username
+            avatar: 1
+          }
+        }
+      )
+      .toArray()
+
+    // Trả về thông tin chi tiết của các follower đã được lọc
+    return userDetails
+  }
+
+  async getFollowing(user_id: string) {
+    const following = await databaseService.followers
+      .find({
+        user_id: new ObjectId(user_id) // Truy vấn dựa trên ID của người dùng
+      })
+      .toArray()
+
+    // Bước 2: Lấy thông tin chi tiết của những người đang được theo dõi từ collection users với projection
+    const followingIds = following.map((f) => f.followed_user_id) // Giả sử trường chứa ID người được theo dõi là followed_user_id
+
+    // Bước 3: Lấy thông tin của những người đang được theo dõi
+    const followingDetails = await databaseService.users
+      .find(
+        {
+          _id: { $in: followingIds.map((id) => new ObjectId(id)) } // Chuyển đổi ID thành ObjectId
+        },
+        {
+          projection: {
+            _id: 1, // Giữ lại ID người dùng
+            name: 1, // Giữ lại tên người dùng
+            username: 1,
+            avatar: 1 // Giữ lại username
+            // Thêm các trường khác mà bạn muốn hiển thị
+          }
+        }
+      )
+      .toArray()
+
+    // Trả về thông tin chi tiết của những người đang được theo dõi
+    return followingDetails
+  }
+  async getSearch({ searchTerm, limit }: { searchTerm: string; limit: number }) {
+    if (!searchTerm.trim()) {
+      return []
+    }
+
+    const users = await databaseService.users
+      .find({
+        name: { $regex: searchTerm, $options: 'i' }
+      })
+      .project({
+        name: 1,
+        username: 1,
+        avatar: 1
+      })
+      .limit(limit)
+      .toArray()
+
+    return users
+  }
 }
+
 const usersService = new UsersService()
 export default usersService

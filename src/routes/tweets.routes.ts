@@ -2,6 +2,9 @@ import { Router } from 'express'
 import {
   createTweetController,
   getNewFeedController,
+  getNewFeedMeController,
+  getNewFeedUserController,
+  getRandomNewFeedController,
   getTweetChildrenController,
   getTweetController,
   isUserLoggedInvalidator
@@ -26,10 +29,11 @@ tweetRouter.post(
 )
 tweetRouter.get(
   '/:tweet_id',
-  tweetidValidator,
+  //tweetidValidator,
+  //verifiedUserValidator,
   isUserLoggedInvalidator(accessTokenValidator),
   isUserLoggedInvalidator(verifiedUserValidator),
-  audienceValidator,
+  // audienceValidator,
   wrapRequestHandler(getTweetController)
 )
 tweetRouter.get(
@@ -48,5 +52,20 @@ tweetRouter.get(
   accessTokenValidator,
   verifiedUserValidator,
   wrapRequestHandler(getNewFeedController)
+)
+
+tweetRouter.get('/newfeed/me', accessTokenValidator, verifiedUserValidator, wrapRequestHandler(getNewFeedMeController))
+tweetRouter.get(
+  '/newfeed/user/:profile_user_id',
+  accessTokenValidator,
+  verifiedUserValidator,
+  wrapRequestHandler(getNewFeedUserController)
+)
+tweetRouter.get(
+  '/newfeed/random',
+  paginateValidator,
+  accessTokenValidator,
+  verifiedUserValidator,
+  wrapRequestHandler(getRandomNewFeedController)
 )
 export default tweetRouter

@@ -113,20 +113,20 @@ export const tweetidValidator = validate(
       tweet_id: {
         custom: {
           options: async (value: string, { req }) => {
-            if (!ObjectId.isValid(value)) {
-              throw new ErrorWithStatus({
-                status: HTTP_STATUS.BAD_REQUEST,
-                message: TWEETMESSAGE.INVALID_TWEET_ID
-              })
-            }
+            // if (!ObjectId.isValid(value)) {
+            //   throw new ErrorWithStatus({
+            //     status: HTTP_STATUS.BAD_REQUEST,
+            //     message: TWEETMESSAGE.INVALID_TWEET_ID
+            //   })
+            // }
             const [tweet] = await databaseService.tweets
               .aggregate<Tweets>([
-                {
-                  $match: {
-                    parent_id: new ObjectId(value),
-                    type: 2
-                  }
-                },
+                // {
+                //   $match: {
+                //     parent_id: new ObjectId(value),
+                //     type: 2
+                //   }
+                // },
                 {
                   $lookup: {
                     from: 'hashtags',

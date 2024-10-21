@@ -1,7 +1,7 @@
 import { ParamSchema, body, checkSchema } from 'express-validator'
 import { JsonWebTokenError } from 'jsonwebtoken'
 import { HTTP_STATUS } from '~/constants/httpStatus'
-import { userMessage } from '~/constants/messages'
+import { TWEETMESSAGE, userMessage } from '~/constants/messages'
 import { ErrorWithStatus } from '~/models/errors'
 import databaseService from '~/services/database.services'
 import { hashPassword } from '~/utils/crypto'
@@ -153,6 +153,28 @@ const userIdSchema: ParamSchema = {
     }
   }
 }
+
+// const usernameSchema: ParamSchema = {
+//   custom: {
+//     options: async (value: string, { req }) => {
+//       if (!value) {
+//         throw new ErrorWithStatus({
+//           message: TWEETMESSAGE.INVALID_USERNAME,
+//           status: HTTP_STATUS.NOT_FOUND
+//         })
+//       }
+//       const followed_user = await databaseService.users.findOne({
+//         username: value
+//       })
+//       if (followed_user === null) {
+//         throw new ErrorWithStatus({
+//           message: userMessage.USER_NOTFOUND,
+//           status: HTTP_STATUS.NOT_FOUND
+//         })
+//       }
+//     }
+//   }
+// }
 
 export const loginValidator = validate(
   checkSchema(
@@ -448,39 +470,39 @@ export const updateMeValidator = validate(
           errorMessage: userMessage.WEBSITE_LENGTH
         }
       },
-      username: {
-        optional: true,
+      // username: {
+      //   optional: true,
 
-        trim: true,
-        custom: {
-          options: async (value, { req }) => {
-            if (!REGEX_USER.test(value)) {
-              throw Error(userMessage.USERNAME_INVALID)
-            }
-            const user = await databaseService.users.findOne({
-              username: value
-            })
-            if (user) {
-              throw Error(userMessage.USERNAME_EXITS)
-            }
-          }
-        }
-      },
-      avatar: {
-        optional: true,
-        isString: {
-          errorMessage: userMessage.LOCATION_LENGTH
-        },
-        trim: true,
+      //   trim: true,
+      //   custom: {
+      //     options: async (value, { req }) => {
+      //       if (!REGEX_USER.test(value)) {
+      //         throw Error(userMessage.USERNAME_INVALID)
+      //       }
+      //       const user = await databaseService.users.findOne({
+      //         username: value
+      //       })
+      //       if (user) {
+      //         throw Error(userMessage.USERNAME_EXITS)
+      //       }
+      //     }
+      //   }
+      // },
+      // avatar: {
+      //   optional: true,
+      //   isString: {
+      //     errorMessage: userMessage.LOCATION_LENGTH
+      //   },
+      //   trim: true,
 
-        isLength: {
-          options: {
-            min: 1,
-            max: 50
-          },
-          errorMessage: userMessage.AVATAR_LENGTH
-        }
-      },
+      //   isLength: {
+      //     options: {
+      //       min: 1,
+      //       max: 200
+      //     },
+      //     errorMessage: userMessage.AVATAR_LENGTH
+      //   }
+      // },
       cover_photo: {
         optional: true,
         isString: {

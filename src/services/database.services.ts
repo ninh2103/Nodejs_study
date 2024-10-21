@@ -9,8 +9,9 @@ import Hashtag from '~/models/schemas/Hasahtags.schema'
 import Bookmark from '~/models/schemas/Bookmarks.schema'
 import Like from '~/models/schemas/Like.schema'
 import Conversation from '~/models/schemas/Conversasations'
+import Comment from '~/models/schemas/Comments.schema'
 dotenv.config()
-const uri = `mongodb+srv://${process.env.DB_USERNAME}:${process.env.DB_PASSWORD}@twitter.wne2r5k.mongodb.net/?retryWrites=true&w=majority&appName=twitter`
+const uri = `mongodb+srv://${process.env.DB_USERNAME}:${process.env.DB_PASSWORD}@mxhclone.o4lne.mongodb.net/`
 
 class DatabaseService {
   private client: MongoClient
@@ -28,27 +29,27 @@ class DatabaseService {
       throw error
     }
   }
-  async indexUsers() {
-    const exits = await this.users.indexExists(['email_1', 'email_1_password_1', 'username_1'])
-    if (!exits) {
-      this.users.createIndex({ email: 1, password: 1 })
-      this.users.createIndex({ email: 1 }, { unique: true })
-      this.users.createIndex({ username: 1 }, { unique: true })
-    }
-  }
-  async indexRefreshToken() {
-    const exits = await this.refreshTokens.indexExists(['exp_1', 'token_1'])
-    if (!exits) {
-      this.refreshTokens.createIndex({ token: 1 })
-      this.refreshTokens.createIndex({ exp: 1 }, { expireAfterSeconds: 0 })
-    }
-  }
-  async indexFollowers() {
-    const exits = await this.followers.indexExists(['user_id_1_followed_user_id_1'])
-    if (!exits) {
-      this.followers.createIndex({ user_id: 1, followed_user_id: 1 })
-    }
-  }
+  // async indexUsers() {
+  //   const exits = await this.users.indexExists(['email_1', 'email_1_password_1', 'username_1'])
+  //   if (!exits) {
+  //     this.users.createIndex({ email: 1, password: 1 })
+  //     this.users.createIndex({ email: 1 }, { unique: true })
+  //     this.users.createIndex({ username: 1 }, { unique: true })
+  //   }
+  // }
+  // async indexRefreshToken() {
+  //   const exits = await this.refreshTokens.indexExists(['exp_1', 'token_1'])
+  //   if (!exits) {
+  //     this.refreshTokens.createIndex({ token: 1 })
+  //     this.refreshTokens.createIndex({ exp: 1 }, { expireAfterSeconds: 0 })
+  //   }
+  // }
+  // async indexFollowers() {
+  //   const exits = await this.followers.indexExists(['user_id_1_followed_user_id_1'])
+  //   if (!exits) {
+  //     this.followers.createIndex({ user_id: 1, followed_user_id: 1 })
+  //   }
+  // }
   get likes(): Collection<Like> {
     return this.db.collection(process.env.DB_LIKE_CONLECTION as string)
   }
@@ -74,6 +75,9 @@ class DatabaseService {
   }
   get conversations(): Collection<Conversation> {
     return this.db.collection(process.env.DB_CONVERSATION_CONLECTION as string)
+  }
+  get comments(): Collection<Comment> {
+    return this.db.collection(process.env.DB_COMMENT_CONLECTION as string)
   }
 }
 

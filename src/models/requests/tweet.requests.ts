@@ -14,6 +14,7 @@ export interface TweetReqBody {
 export interface TweetParam extends ParamsDictionary {
   tweet_id: string
 }
+
 export interface TweetQuery extends PaginationReq, Query {
   tweet_type: string
 }
