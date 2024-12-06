@@ -33,6 +33,28 @@ class BookmarkServices {
 
     return result
   }
+
+  async getAllBookmarks(user_id: string) {
+    // Lấy tất cả các bookmark của người dùng hiện tại
+    const bookmarks = await databaseService.bookmarks
+      .find(
+        { user_id: new ObjectId(user_id) },
+        { projection: { tweet_id: 1 } } // Lấy chỉ `tweet_id`
+      )
+      .toArray()
+
+    // Lấy danh sách ID của các tweet đã bookmark
+    const tweetIds = bookmarks.map((bookmark) => bookmark.tweet_id)
+
+    if (tweetIds.length === 0) {
+      return [] // Không có bài viết nào được bookmark
+    }
+
+    // Truy vấn danh sách bài viết dựa trên ID
+    const tweets = await databaseService.tweets.find({ _id: { $in: tweetIds } }).toArray()
+
+    return tweets
+  }
 }
 const bookmarksService = new BookmarkServices()
 export default bookmarksService

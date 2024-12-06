@@ -6,6 +6,7 @@ interface userType {
   name: string
   email: string
   data_of_birth: Date
+  role: number
   password: string
   create_at?: Date
   update_at?: Date
@@ -26,6 +27,7 @@ export default class User {
   email: string
   data_of_birth: Date
   password: string
+  role: number
   create_at: Date
   update_at: Date
   tweet_circle: ObjectId[]
@@ -55,6 +57,7 @@ export default class User {
     this.username = user.username || ''
     this.update_at = user.update_at || date
     this.website = user.website || ''
+    this.role = user.role
     this.verify = user.verify || UserVerifyStatus.Unverified
     this.email_verify_token = user.email_verify_token || ''
     this.forgot_password_token = user.forgot_password_token || ''

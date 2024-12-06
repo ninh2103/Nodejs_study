@@ -312,7 +312,8 @@ class TweetsService {
           $match: {
             user_id: {
               $in: ids
-            }
+            },
+            'medias.type': 0
           }
         },
         {
@@ -491,7 +492,7 @@ class TweetsService {
         },
         {
           $facet: {
-            // Lấy các bài viết của người dùng
+            // Lấy các bài viết của người dùng có ảnh, không có video
             posts: [
               {
                 $lookup: {
@@ -504,6 +505,13 @@ class TweetsService {
               { $unwind: '$tweets' },
               {
                 $replaceRoot: { newRoot: '$tweets' }
+              },
+              {
+                $match: {
+                  // Lọc bài viết chứa ảnh, không chứa video
+                  medias: { $elemMatch: { type: 0 } }
+                  //media: { $not: { $elemMatch: { type: 'video' } } }
+                }
               },
               {
                 $lookup: {
@@ -707,6 +715,12 @@ class TweetsService {
                 $replaceRoot: { newRoot: '$tweets' }
               },
               {
+                // Lọc bài viết có ảnh, media.type = 0
+                $match: {
+                  'medias.type': 0 // Chỉ lấy các bài viết có ảnh
+                }
+              },
+              {
                 $lookup: {
                   from: 'hashtags',
                   localField: 'hashtags',
@@ -897,7 +911,8 @@ class TweetsService {
           $match: {
             user_id: {
               $nin: ids // Lọc các bài viết không thuộc về các người dùng đã theo dõi
-            }
+            },
+            'medias.type': 0
           }
         },
         {
@@ -1043,6 +1058,349 @@ class TweetsService {
       .toArray()
 
     return posts
+  }
+
+  async getAllNewfeeds({ limit, page }: { limit: number; page: number }) {
+    const tweets = await databaseService.tweets
+      .aggregate([
+        {
+          $match: {
+            'medias.type': 0
+          }
+        },
+        {
+          $lookup: {
+            from: 'users',
+            localField: 'user_id',
+            foreignField: '_id',
+            as: 'user'
+          }
+        },
+        {
+          $unwind: {
+            path: '$user'
+          }
+        },
+        {
+          $lookup: {
+            from: 'hashtags',
+            localField: 'hashtags',
+            foreignField: '_id',
+            as: 'hashtags'
+          }
+        },
+        {
+          $lookup: {
+            from: 'users',
+            localField: 'mentions',
+            foreignField: '_id',
+            as: 'mentions'
+          }
+        },
+        {
+          $addFields: {
+            mentions: {
+              $map: {
+                input: '$mentions',
+                as: 'mention',
+                in: {
+                  _id: '$$mention._id',
+                  name: '$$mention.name',
+                  username: '$$mention.username',
+                  email: '$$mention.email'
+                }
+              }
+            }
+          }
+        },
+        {
+          $lookup: {
+            from: 'bookmarks',
+            localField: '_id',
+            foreignField: 'tweet_id',
+            as: 'bookmarks'
+          }
+        },
+        {
+          $lookup: {
+            from: 'likes',
+            localField: '_id',
+            foreignField: 'tweet_id',
+            as: 'likes'
+          }
+        },
+        {
+          $lookup: {
+            from: 'tweets',
+            localField: '_id',
+            foreignField: 'parent_id',
+            as: 'tweets_children'
+          }
+        },
+        {
+          $addFields: {
+            bookmarks: {
+              $size: '$bookmarks'
+            },
+            likes: {
+              $size: '$likes'
+            },
+            retweet_count: {
+              $size: {
+                $filter: {
+                  input: '$tweets_children',
+                  as: 'item',
+                  cond: {
+                    $eq: ['$$item.type', TweetType.Retweet]
+                  }
+                }
+              }
+            },
+            comment_count: {
+              $size: {
+                $filter: {
+                  input: '$tweets_children',
+                  as: 'item',
+                  cond: {
+                    $eq: ['$$item.type', TweetType.Comment]
+                  }
+                }
+              }
+            },
+            quote_count: {
+              $size: {
+                $filter: {
+                  input: '$tweets_children',
+                  as: 'item',
+                  cond: {
+                    $eq: ['$$item.type', TweetType.QuoteTweet]
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          $project: {
+            tweets_children: 0,
+            user: {
+              password: 0,
+              data_of_birth: 0,
+              email_verify_token: 0,
+              forgot_password_token: 0,
+              tweet_circle: 0
+            }
+          }
+        },
+        {
+          $skip: (page - 1) * limit
+        },
+        {
+          $limit: limit
+        }
+      ])
+      .toArray()
+
+    return tweets
+  }
+  async deleteTweet(user_id: string, _id: string) {
+    await databaseService.tweets.deleteOne({
+      _id: new ObjectId(_id)
+    })
+  }
+
+  async getVideoNewfeeds({ user_id, limit, page }: { user_id: string; limit: number; page: number }) {
+    const user_id_obj = new ObjectId(user_id)
+
+    const followed_user_ids = await databaseService.followers
+      .find(
+        {
+          user_id: user_id_obj
+        },
+        {
+          projection: {
+            followed_user_id: 1,
+            _id: 0
+          }
+        }
+      )
+      .toArray()
+
+    // Lấy danh sách ID người dùng được theo dõi và thêm ID người dùng hiện tại
+    const ids = followed_user_ids.map((item) => item.followed_user_id)
+    ids.push(user_id_obj)
+
+    const tweets = await databaseService.tweets
+      .aggregate([
+        {
+          $match: {
+            user_id: {
+              $in: ids
+            },
+            'medias.type': 1
+          }
+        },
+        {
+          $lookup: {
+            from: 'users',
+            localField: 'user_id',
+            foreignField: '_id',
+            as: 'user'
+          }
+        },
+        {
+          $unwind: {
+            path: '$user'
+          }
+        },
+        {
+          $match: {
+            $or: [
+              {
+                audience: 0
+              },
+              {
+                $and: [
+                  {
+                    audience: 1
+                  },
+                  {
+                    'user.tweet_circle': {
+                      $in: [user_id_obj]
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          $lookup: {
+            from: 'hashtags',
+            localField: 'hashtags',
+            foreignField: '_id',
+            as: 'hashtags'
+          }
+        },
+        {
+          $lookup: {
+            from: 'users',
+            localField: 'mentions',
+            foreignField: '_id',
+            as: 'mentions'
+          }
+        },
+        {
+          $addFields: {
+            mentions: {
+              $map: {
+                input: '$mentions',
+                as: 'mention',
+                in: {
+                  _id: '$$mention._id',
+                  name: '$$mention.name',
+                  username: '$$mention.username',
+                  email: '$$mention.email'
+                }
+              }
+            }
+          }
+        },
+        {
+          $lookup: {
+            from: 'bookmarks',
+            localField: '_id',
+            foreignField: 'tweet_id',
+            as: 'bookmarks'
+          }
+        },
+        {
+          $lookup: {
+            from: 'likes',
+            localField: '_id',
+            foreignField: 'tweet_id',
+            as: 'likes'
+          }
+        },
+        {
+          $lookup: {
+            from: 'tweets',
+            localField: '_id',
+            foreignField: 'parent_id',
+            as: 'tweets_children'
+          }
+        },
+        {
+          $addFields: {
+            bookmarks: {
+              $size: '$bookmarks'
+            },
+            likes: {
+              $size: '$likes'
+            },
+            retweet_count: {
+              $size: {
+                $filter: {
+                  input: '$tweets_children',
+                  as: 'item',
+                  cond: {
+                    $eq: ['$$item.type', TweetType.Retweet]
+                  }
+                }
+              }
+            },
+            comment_count: {
+              $size: {
+                $filter: {
+                  input: '$tweets_children',
+                  as: 'item',
+                  cond: {
+                    $eq: ['$$item.type', TweetType.Comment]
+                  }
+                }
+              }
+            },
+            quote_count: {
+              $size: {
+                $filter: {
+                  input: '$tweets_children',
+                  as: 'item',
+                  cond: {
+                    $eq: ['$$item.type', TweetType.QuoteTweet]
+                  }
+                }
+              }
+            },
+            isLiked: {
+              $in: [user_id_obj, '$likes.user_id']
+            },
+            isBookmarked: {
+              $in: [user_id_obj, '$bookmarks.user_id']
+            }
+          }
+        },
+        {
+          $project: {
+            tweets_children: 0,
+            user: {
+              password: 0,
+              data_of_birth: 0,
+              email_verify_token: 0,
+              forgot_password_token: 0,
+              tweet_circle: 0
+            }
+          }
+        },
+        {
+          $skip: (page - 1) * limit
+        },
+        {
+          $limit: limit
+        }
+      ])
+      .toArray()
+
+    return tweets
   }
 }
 

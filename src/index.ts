@@ -20,7 +20,13 @@ import { commentRouter } from '~/routes/comment.routes'
 //import '~/utils/fake'
 const app = express()
 
-app.use(cors())
+app.use(
+  cors({
+    origin: 'http://localhost:3000', // Cho phép truy cập từ frontend
+    credentials: true // Cho phép gửi cookie
+  })
+)
+
 const httpServer = createServer(app)
 const port = 4000
 databaseService.conect().then(() => {
@@ -45,7 +51,8 @@ app.use('/static/video', express.static(UPLOAD_VIDEO_DIR))
 app.use(defaultErrorHanddler)
 const io = new Server(httpServer, {
   cors: {
-    origin: '*'
+    origin: 'http://localhost:3000', // Cho phép truy cập từ frontend
+    credentials: true // Cho phép gửi cookie
   }
 })
 

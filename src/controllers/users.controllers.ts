@@ -27,7 +27,7 @@ config()
 export const loginController = async (req: Request<ParamsDictionary, any, LoginReqBody>, res: Response) => {
   const user = req.user as User
   const user_id = user._id as ObjectId
-  const result = await usersService.login({ user_id: user_id.toString(), verify: user.verify })
+  const result = await usersService.login({ user_id: user_id.toString(), verify: user.verify }, res)
   return res.json({
     message: 'login success',
     result
@@ -46,7 +46,7 @@ export const registerController = async (
 }
 export const logoutController = async (req: Request, res: Response) => {
   const { refresh_token } = req.body
-  const result = await usersService.logout(refresh_token)
+  const result = await usersService.logout(refresh_token, res)
   return res.json(result)
 }
 export const emailVerifyController = async (req: Request, res: Response, next: NextFunction) => {
@@ -276,4 +276,22 @@ export const getSearchUsersController = async (req: Request, res: Response, next
       message: 'Đã xảy ra lỗi khi tìm kiếm người dùng'
     })
   }
+}
+export const getUserController = async (req: Request, res: Response, next: NextFunction) => {
+  const page = Number(req.query.page)
+  const limit = Number(req.query.limit)
+  const result = await usersService.getAllUserList(page, limit)
+  return res.json({
+    message: 'get All user success',
+    result
+  })
+}
+
+export const deleteUserController = async (req: Request, res: Response, next: NextFunction) => {
+  const { user_id } = req.decoded_authorization as TokenPayload
+  const { _id } = req.params
+  await usersService.deleteUser(user_id, _id)
+  return res.json({
+    message: 'Delete user success'
+  })
 }

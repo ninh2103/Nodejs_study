@@ -31,3 +31,11 @@ export const unBookmarksTweetIdController = async (req: Request, res: Response, 
     message: ' UnBookmarkTweetId Successfully'
   })
 }
+export const getAllBookmarkComtroller = async (req: Request, res: Response, next: NextFunction) => {
+  const { user_id } = req.decoded_authorization as TokenPayload
+  const result = await bookmarksService.getAllBookmarks(user_id)
+  return res.json({
+    result,
+    message: ' get All Bookmark Successfully'
+  })
+}

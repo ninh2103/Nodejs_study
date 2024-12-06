@@ -125,3 +125,36 @@ export const getRandomNewFeedController = async (
     result: result
   })
 }
+export const getAllNewFeedController = async (req: Request, res: Response, next: NextFunction) => {
+  const page = Number(req.query.page)
+  const limit = Number(req.query.limit)
+  const result = await tweetsService.getAllNewfeeds({ page, limit })
+
+  res.json({
+    message: 'get all new feed success',
+    result: result
+  })
+}
+export const deleteTweetController = async (req: Request, res: Response, next: NextFunction) => {
+  const { user_id } = req.decoded_authorization as TokenPayload
+  const { _id } = req.params
+  await tweetsService.deleteTweet(user_id, _id)
+  return res.json({
+    message: 'Delete tweet success'
+  })
+}
+export const getNewFeedVideoController = async (
+  req: Request<ParamsDictionary, any, any, PaginationReq>,
+  res: Response,
+  next: NextFunction
+) => {
+  const user_id = req.decoded_authorization?.user_id as string
+  const page = Number(req.query.page)
+  const limit = Number(req.query.limit)
+  const result = await tweetsService.getVideoNewfeeds({ user_id, page, limit })
+
+  res.json({
+    message: 'get Video new feed success',
+    result: result
+  })
+}

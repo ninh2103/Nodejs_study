@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import {
   changepasswordController,
+  deleteUserController,
   emailVerifyController,
   followController,
   forgotPasswordController,
@@ -9,6 +10,7 @@ import {
   getFollowingController,
   getMeController,
   getSearchUsersController,
+  getUserController,
   getUserMessageController,
   getUserProfileController,
   loginController,
@@ -123,3 +125,10 @@ usersRouter.get(
   verifiedUserValidator,
   wrapRequestHandler(getSearchUsersController)
 )
+usersRouter.get(
+  '/dashboard/account/list',
+  accessTokenValidator,
+  verifiedUserValidator,
+  wrapRequestHandler(getUserController)
+)
+usersRouter.delete('/:_id', accessTokenValidator, verifiedUserValidator, wrapRequestHandler(deleteUserController))

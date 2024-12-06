@@ -25,3 +25,8 @@ export enum TweetAudience {
   everyone,
   Twittercircle
 }
+
+export enum Role {
+  User,
+  Admin
+}

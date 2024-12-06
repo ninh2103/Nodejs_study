@@ -3,7 +3,7 @@ import databaseService from './database.services'
 import { RegisterReqBody, UpdateMeReqBody } from '~/models/requests/User.requests'
 import { hashPassword } from '~/utils/crypto'
 import { signToken, verifyToken } from '~/utils/jwt'
-import { Tokentype, UserVerifyStatus } from '~/constants/enums'
+import { Role, Tokentype, UserVerifyStatus } from '~/constants/enums'
 import RefreshToken from '~/models/schemas/RefreshToken.schema.'
 import { ObjectId } from 'mongodb'
 import { config } from 'dotenv'
@@ -13,14 +13,17 @@ import axios from 'axios'
 import { ErrorWithStatus } from '~/models/errors'
 import { HTTP_STATUS } from '~/constants/httpStatus'
 import { sendEmail } from '~/utils/email'
+import { Response } from 'express'
+import { serialize } from 'cookie'
 config()
 class UsersService {
-  private signAccessToken({ user_id, verify }: { user_id: string; verify: UserVerifyStatus }) {
+  private signAccessToken({ user_id, verify, role }: { user_id: string; verify: UserVerifyStatus; role: number }) {
     return signToken({
       payload: {
         user_id,
         token_type: Tokentype.AccessToken,
-        verify
+        verify,
+        role // Role luôn có mặt trong payload
       },
       privateKey: process.env.JWT_SECRET_ACCESS_TOKEN as string,
       option: {
@@ -29,33 +32,51 @@ class UsersService {
     })
   }
 
-  private signRefreshToken({ user_id, verify, exp }: { user_id: string; verify: UserVerifyStatus; exp?: number }) {
-    if (exp) {
-      return signToken({
-        payload: {
-          user_id,
-          token_type: Tokentype.RefreshToken,
-          verify,
-          exp
-        },
-        privateKey: process.env.JWT_SECRET_REFRESH_TOKEN as string
-      })
-    }
+  private signRefreshToken({
+    user_id,
+    verify,
+    exp,
+    role
+  }: {
+    user_id: string
+    verify: UserVerifyStatus
+    exp?: number
+    role: number
+  }) {
     return signToken({
       payload: {
         user_id,
         token_type: Tokentype.RefreshToken,
-        verify
+        verify,
+        role, // Role luôn có mặt trong payload
+        ...(exp && { exp })
       },
       privateKey: process.env.JWT_SECRET_REFRESH_TOKEN as string,
-      option: {
-        expiresIn: process.env.REFRESH_TOKEN_EXPIREX_IN
-      }
+      option: exp
+        ? undefined
+        : {
+            expiresIn: process.env.REFRESH_TOKEN_EXPIREX_IN
+          }
     })
   }
-  private signAccessandRefreshToken({ user_id, verify }: { user_id: string; verify: UserVerifyStatus }) {
-    return Promise.all([this.signAccessToken({ user_id, verify }), this.signRefreshToken({ user_id, verify })])
+
+  private async signAccessandRefreshToken({ user_id, verify }: { user_id: string; verify: UserVerifyStatus }) {
+    // Lấy role từ database
+    const user = await databaseService.users.findOne({ _id: new ObjectId(user_id) })
+
+    if (!user) {
+      throw new Error('User not found')
+    }
+
+    const { role } = user // Lấy role từ database
+
+    // Tạo access_token và refresh_token
+    return Promise.all([
+      this.signAccessToken({ user_id, verify, role }),
+      this.signRefreshToken({ user_id, verify, role })
+    ])
   }
+
   private signVerifyEmailToken({ user_id, verify }: { user_id: string; verify: UserVerifyStatus }) {
     return signToken({
       payload: {
@@ -100,7 +121,8 @@ class UsersService {
         email_verify_token,
         data_of_birth: new Date(payload.data_of_birth),
         password: hashPassword(payload.password),
-        username: username
+        username: username,
+        role: Role.User
       })
     )
     const [access_token, refresh_token] = await this.signAccessandRefreshToken({
@@ -118,22 +140,48 @@ class UsersService {
       refresh_token
     }
   }
-  async login({ user_id, verify }: { user_id: string; verify: UserVerifyStatus }) {
+  async login(
+    { user_id, verify }: { user_id: string; verify: UserVerifyStatus },
+    res: Response // Truyền `res` vào để set cookie
+  ) {
     const [access_token, refresh_token] = await this.signAccessandRefreshToken({
       user_id,
       verify
     })
+
     const { iat, exp } = await this.decodedRefreshToken(refresh_token)
+
     await databaseService.refreshTokens.insertOne(
       new RefreshToken({ user_id: new ObjectId(user_id), token: refresh_token, iat, exp })
     )
+
+    // Set cookies
+    res.setHeader('Set-Cookie', [
+      serialize('access_token', access_token, {
+        httpOnly: true,
+        secure: true, // Chỉ gửi qua HTTPS
+        sameSite: 'none', // Tăng cường bảo mật CSRF
+        maxAge: 7 * 24 * 60 * 60, // Thời gian sống của access token, ví dụ 1 giờ
+        path: '/'
+      }),
+      serialize('refresh_token', refresh_token, {
+        httpOnly: true,
+        secure: true,
+        sameSite: 'none',
+        maxAge: 7 * 24 * 60 * 60, // Refresh token sống trong 7 ngày
+        path: '/'
+      })
+    ])
+
     return {
       access_token,
       refresh_token
     }
   }
-  async logout(refresh_token: string) {
+  async logout(refresh_token: string, res: Response) {
     await databaseService.refreshTokens.deleteOne({ token: refresh_token })
+    res.clearCookie('refresh_token')
+    res.clearCookie('access_token')
     return {
       message: userMessage.LOGOUT_SUCSESS
     }
@@ -197,6 +245,13 @@ class UsersService {
         }
       }
     )
+
+    const user = await databaseService.users.findOne({ _id: new ObjectId(user_id) })
+
+    if (!user) {
+      throw new Error('User not found after update')
+    }
+    await sendEmail(user.email, user.name, forgot_password_token, 'forgotPassword')
     console.log('Forgot Password Token: ', forgot_password_token)
     return {
       message: userMessage.CHECK_EMAIL_TO_RESET_PASSWORD
@@ -420,8 +475,8 @@ class UsersService {
     exp: number
   }) {
     const [new_access_token, new_refresh_token] = await Promise.all([
-      this.signAccessToken({ user_id, verify }),
-      this.signRefreshToken({ user_id, verify, exp }),
+      this.signAccessToken({ user_id, verify, role: Role.User }),
+      this.signRefreshToken({ user_id, verify, exp, role: Role.User }),
       databaseService.refreshTokens.deleteOne({ toke: refresh_token })
     ])
     const decoded_refresh_token = await this.decodedRefreshToken(refresh_token)
@@ -611,6 +666,45 @@ class UsersService {
       .toArray()
 
     return users
+  }
+
+  async getAllUserList(page: number, limit: number) {
+    const skip = (page - 1) * limit
+
+    const users = await databaseService.users
+      .find(
+        {
+          verify: 1 // Lọc người dùng đã đăng ký (có verify = 1)
+        },
+        {
+          projection: {
+            _id: 1,
+            name: 1,
+            username: 1,
+            avatar: 1
+          }
+        }
+      )
+      .skip(skip) // Số lượng bản ghi cần bỏ qua
+      .limit(limit) // Số lượng bản ghi cần lấy
+      .toArray()
+
+    // Tính tổng số người dùng để trả về cùng dữ liệu
+    const totalUsers = await databaseService.users.countDocuments({
+      verify: 1
+    })
+
+    return {
+      users,
+      totalPages: Math.ceil(totalUsers / limit), // Tổng số trang
+      currentPage: page, // Trang hiện tại
+      totalUsers // Tổng số người dùng
+    }
+  }
+  async deleteUser(user_id: string, _id: string) {
+    await databaseService.users.deleteOne({
+      _id: new ObjectId(_id)
+    })
   }
 }
 

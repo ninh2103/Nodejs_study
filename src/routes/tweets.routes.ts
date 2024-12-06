@@ -1,9 +1,12 @@
 import { Router } from 'express'
 import {
   createTweetController,
+  deleteTweetController,
+  getAllNewFeedController,
   getNewFeedController,
   getNewFeedMeController,
   getNewFeedUserController,
+  getNewFeedVideoController,
   getRandomNewFeedController,
   getTweetChildrenController,
   getTweetController,
@@ -68,4 +71,20 @@ tweetRouter.get(
   verifiedUserValidator,
   wrapRequestHandler(getRandomNewFeedController)
 )
+
+tweetRouter.get(
+  '/dashboard/list/',
+  paginateValidator,
+  accessTokenValidator,
+  verifiedUserValidator,
+  wrapRequestHandler(getAllNewFeedController)
+)
+tweetRouter.delete('/:_id', accessTokenValidator, verifiedUserValidator, wrapRequestHandler(deleteTweetController))
 export default tweetRouter
+tweetRouter.get(
+  '/video/newfeed/random',
+  paginateValidator,
+  accessTokenValidator,
+  verifiedUserValidator,
+  wrapRequestHandler(getNewFeedVideoController)
+)

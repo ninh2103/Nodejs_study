@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import {
   bookmarksTweetController,
+  getAllBookmarkComtroller,
   unBookmarksTweetController,
   unBookmarksTweetIdController
 } from '~/controllers/bookmarks.controller'
@@ -30,3 +31,4 @@ bookmarksRouter.delete(
   tweetidValidator,
   wrapRequestHandler(unBookmarksTweetIdController)
 )
+bookmarksRouter.get('/', accessTokenValidator, verifiedUserValidator, wrapRequestHandler(getAllBookmarkComtroller))
